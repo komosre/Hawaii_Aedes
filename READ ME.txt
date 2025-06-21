@@ -1,0 +1,15 @@
+CODE USED TO DEVELOP THE PHYLOGENETIC TREES
+Files:
+PopGen_GD_HovenWeep_FORPUB.slurm
+AlboGenVCF_GD_FORPUB.R
+AlboPopGen_WriteUp_FORPUB.Rmd
+
+Please read prior to running.
+
+The .slurm code is used to interact with the High Performance Computer (HPC), a working directory with the .vcf.gz files should first be placed in the working directory, along with the .R code (AlboGenVCF_GD_FORPUB.R).  Make sure that the .slurm code HOMEDIR has the working directory location.   
+
+The .RMD file is used to develop the figures on a PC.  Download the *.RData files to a working director on the PC and make sure notate the working directory (Loc) in the .Rmd file. 
+
+For questions contact:
+Adam_Vorsino@fws.gov
+

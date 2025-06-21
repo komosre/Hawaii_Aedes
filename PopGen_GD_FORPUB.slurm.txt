@@ -1,0 +1,35 @@
+#!/bin/bash
+#SBATCH --job-name=PopGenVCF
+#SBATCH -c 120
+#SBATCH -n 1
+#SBATCH -N 1
+#SBATCH --hint=multithread
+#SBATCH --time 48:00:00
+#SBATCH --account=fws_pifwo
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=adam_vorsino@fws.gov
+#SBATCH -o PopGenVCF_Out-%j.log                  #the %j inserts the jobid
+#SBATCH -e PopGenVCF_Err_%j.er
+#SBATCH --exclusive
+
+# Differentiaion ANALYSIS STEP 2A
+export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
+HOMEDIR="" # Location of the working direction with the *.R file
+cd "$HOMEDIR"
+
+# removing older files
+NDIR=$(pwd)
+find $NDIR -name 'VARSELnumpro*' -delete
+# Exporting the number of proceccors applied
+NPROC=$SLURM_CPUS_ON_NODE # this grabs the value for -c above. see https://hpcc.umd.edu/hpcc/help/slurmenv.html
+touch "VARSELnumpro"$NPROC.txt
+echo $NPROC > "VARSELnumpro"$NPROC.txt
+
+#HovenWeep
+module switch PrgEnv-cray PrgEnv-gnu
+module load PrgEnv-gnu
+module load gdal/3.9.1 geos/3.12.1 proj/9.3.0 cmake/3.27.4 cray-R/4.2.1.2 cray-libpals/1.2.12 cray-libsci/23.05.1.4
+
+#ntasks  nodes per task
+
+srun -n 1 -N 1 --cpus-per-task=$SLURM_CPUS_PER_TASK Rscript AlboGenVCF_GD_FORPUB.R 

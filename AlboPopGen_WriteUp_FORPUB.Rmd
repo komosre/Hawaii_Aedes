@@ -1,0 +1,1152 @@
+---
+title: "Population genomics of *Aedes albopictus* to assess island biosecurity and site specific control measures."
+author: 
+- \n
+- "**Sangwoo Seok^1^**, **Adam E. Vorsino^2^**, **Travis C. Collier^1^**, **Limb Hapairai^3^**, **Christopher Jacobson^4^**, **Ana L. Romero-Weaver^1^**, **Oscar D. Kirstein^1^**, **Dennis LaPointe^6^**,**Mark Leong^7^**,  **Robyn Raban^8^**, **Christine Tabuloc^8^**, **Omar A. Akbari^8^**, **Joana Chiu^8^**, **Jeomhee Hasty^4^**, **Yoosook Lee^1^***" 
+- \n
+- "^1^Florida Medical Entomology Laboratory, Department of Entomology and Nematology, University of Florida, Vero Beach, FL, United States"
+- \n
+- "^2^Strategic Habitat Conservation Program, Ecological Services, Pacific Islands Fish and Wildlife Office, U.S. Fish and Wildlife Service, 300 Ala Moana Blvd Ste. 3-122, Honolulu, Hawai\u02BBi 96850"
+- \n
+- "^3^Pacific Island Health Officers' Association, Pacific Guardian Center, Makai Tower 733 Bishop Street, Suite 1820 Honolulu, HI 96813"
+- \n
+- "^4^Vector Control Branch, Hawai‘i State Department of Health"
+- \n
+- "^6^Kilauea Field Station, PIERC, USGS PIERC Office Bldg 343"
+- \n
+- "^7^Environmental Health, Department of Public Health, Tripler Army Medical Center"
+- \n
+- "^8^Department of Cell and Developmental Biology, University of California, San Diego"
+- \n
+- "^9^Department of Entomology & Nematology, University of California, Davis, 6352 Storer Hall, One Shields Avenue Davis, CA 95616"
+- \n
+- \n
+- \n
+- \n
+- "*Corresponding author: yoosook.lee@ufl.edu"
+- "SS: seok.s@ufl.edu"
+- "AEV: Adam_Vorsino@fws.gov"
+- "TCC: travcollier@gmail.com"
+- "DL: dlapointe@usgs.gov"
+- "CJ: christopher.jacobsen@doh.hawaii.gov"
+- "LH: limbh@pihoa.org"
+- "JH: jeomhee.hasty@doh.hawaii.gov"
+- "JC: jcchiu@ucdavis.edu"
+- "OAA: oakbari@ucsd.edu"
+- "ALW: aromeroweaver@ufl.edu"
+- "CT: catabuloc@ucdavis.edu"
+- "RR: rraban@ucsd.edu"
+- "ODK: odkirstein@emory.edu"
+- "GV-P: gmvazqu@emory.edu"
+- "YL:  yoosook.lee@ufl.edu"
+date: "DATE: `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::word_document2:
+    fig_caption: true
+    toc: no
+    number_sections: false
+    dev: ragg_png
+    reference_docx: "word-styles-reference-02_NoNumbering.docx"
+font-family: Times New Roman
+csl: "parasites-and-vectors.csl"
+bibliography: "Aedes Pacific Population Genetics.bib"
+editor_options:
+  chunk_output_type: console
+---
+\newpage
+
+```{r setup, include=FALSE}
+options(knitr.duplicate.label = "allow", encoding = 'UTF-8')
+knitr::knit_hooks$set(inline = function(x) {
+  prettyNum(x, big.mark=",")
+})
+# install.packages("remotes")
+# remotes::install_github('yihui/knitr') # knitr update
+
+
+#tinytex::install_tinytex() # installed to work with .pdfs
+
+knitr::opts_chunk$set(fig.cap = "", fig.path = "Plot")
+knitr::opts_chunk$set(tab.cap.pre = "Table ", tab.cap.sep = ": ")
+
+rm(list = ls())
+RunAll = F
+par()
+pckg <- c('rlang', 'glue','R.utils','stringr','rgdal','rgeos', 'stringr', 
+          'MASS','gbm', 'boot', 'scales','snowfall', 'parallel',
+          'ggplot2',  'ggspatial', 'knitr', 'kableExtra', 'Hmisc', 'formattable',
+          'flextable','readxl', 'terra', 'grid', 'patchwork', 
+          'vcfR', 'adegenet', 'poppr', 'pinfsc50', 'ade4', 'ape', 
+          "RColorBrewer", 'ggpubr','plotly','webshot',"magick",
+          'whitebox','overlap','dendextend', 'seqinr', 'phytools', 'phangorn',
+          'extrafont', 'Unicode','maptools', 'dplyr')
+
+
+
+# install.packages("remotes")
+# remotes::install_github("easystats/report")  # You only need to do that once
+# library('report')
+# 
+# install.packages("devtools")
+# devtools::install_github("easystats/easystats")
+# library('easystats')
+# 
+# devtools::install_github("https://github.com/cran/ppmlasso.git")
+# remotes::install_github("stan-dev/cmdstanr")
+
+# install.packages("maptools", repos = "https://packagemanager.posit.co/cran/2023-10-13")
+
+for(i in 1:length(pckg)) {
+  if (!pckg[i] %in% installed.packages()) {
+    try(install.packages(pckg[i],repos = "http://cran.us.r-project.org", dependencies = T), T)
+  }
+  print(pckg[i])
+  try(do.call("library", list(pckg[i])), T)
+}
+
+### BASE
+DT <- 'E:' #paste0(file.path(Sys.getenv("USERPROFILE"),"/Desktop"))#OneDrive - DOI/Desktop"))
+DT <- paste0(DT, "/RCode/GitHub/AlboGenData")
+Loc <- paste0(DT, '/')
+
+NewickTree <- read.tree(paste0(DT, '/exported_tree.newick'))
+
+MetaData <- read.csv(paste0(Loc, "Aalb_popgen_sample metadata_AalbF3.csv"))
+#
+
+AllSampleMetaDataTip <- c()
+for(SN in 1:length(NewickTree$tip.label)){ # The first is "FORMAT"
+  # SN  <- 3
+  SampNM <- NewickTree$tip.label[SN]
+
+  if(SampNM == 'AbUNKN25'){
+    SampNM <- "Ab19HONA001 (AbUNKN25)"
+  }
+
+  SampleMetaData <- MetaData[which(MetaData$banked_sample_id == SampNM),]
+  if(nrow(SampleMetaData)>1){
+    cat(pasteo("\n there are more then one rows for sample name: ", SampleNames[SN]))
+    break()
+  }
+  if(nrow(SampleMetaData)<1){
+    cat(paste0("\n there are no rows with sample name: ", SampleNames[SN]))
+    break()
+  }
+  AllSampleMetaDataTip <- rbind(SampleMetaData, AllSampleMetaDataTip)
+}
+# Loc <- "/caldera/projects/fws/pifwo/avorsino/Ae_Genom_Samples/AlboSamples2_14_23/data/"
+
+# Color shcem used by PCA/Admix/DAPC
+# my_pal <- brewer.pal(n = 13, name = "Set3")
+
+```
+
+# Figures
+
+
+```{r FigA, fig.cap="\\label{fig:FigA} North/Central American locations, and Pacific Islands sampled and compared in this analysis.", echo = F,fig.height=8, fig.width=8.5, message=FALSE, warning=FALSE, autodep=TRUE, paged.print=TRUE}
+#Vfig.width=8, fig.height=6, 
+# try(webshot::install_phantomjs(force = T), T)
+
+# df <- read.csv('https://raw.githubusercontent.com/plotly/datasets/master/globe_contours.csv')
+# df[,2] <- as.numeric(df[,2])
+# df[,2] <- log(df[,2])
+
+# Read the data and calculate age in years
+
+
+# c('Mexico','California','Florida','Guam','Hawaii','Marshall_Is')
+Thailand <- c(13.68109,	100.57857)
+Hawaii <- c(21.3972222, -157.7583333)
+Saipan <- c(15.183333, 145.750000)
+Guam<- c(13.444304, 144.793732)
+Kwajalein <- c(8.715,  167.723)
+Florida <- c(27.664828,-81.515754)
+
+California <- c(37.737690, -122.040488)
+# Yucatan <- c(18.810424, -89.399018)
+
+allComb<- as.data.frame(rbind(Florida, California, Hawaii,Kwajalein, Guam, Thailand)) # Yucatan Hawaii, 
+
+ForConHull<- rbind(cbind(rbind(Florida, California), 'Continental'), # Yucatan
+                   cbind(rbind(Hawaii, Kwajalein, Guam), 'Remote Oceania'), 
+                   cbind(rbind(Thailand), 'SouthEast Asia'))
+colnames(ForConHull) <- c('lat', 'long', 'Locality')
+
+library(terra)
+
+ForConHull_Cont <- cbind(rbind(California, Florida), 'Continental') #Yucatan, 
+ForConHull_Remote <- cbind(rbind(Hawaii, Kwajalein, Guam), 'Remote Oceania')
+# ForConHull_SEAsia <- cbind(rbind(Thailand), 'SouthEast Asia')
+
+colnames(ForConHull_Cont) <- c('lat', 'long', 'Locality')
+colnames(ForConHull_Remote) <- c('lat', 'long', 'Locality')
+
+library(sf)
+library(dplyr)
+library(grDevices)
+library(extrafont)
+library(Unicode)
+
+par(family = "Symbola")
+
+colnames(allComb) <- c('lat', 'long')
+allComb$names =  c('Florida','California','Hawai`i', 'Republic of the Marshall Islands (RMI)','Guam', 'Thailand') #Mexico','Kauai', 
+
+# font_import(paths = NULL, recursive = TRUE, prompt = TRUE,pattern = NULL)
+windowsFonts("Arial Unicode MS" = windowsFont("Arial Unicode MS"))
+windowsFonts("Symbola" = windowsFont("Symbola"))
+
+loadfonts(device = 'win' )
+
+symbol <- c('21', '\U25D7', '\U25D6')#21#"\u25D2"
+# 
+# p2 = ggplot(mtcars) +
+#   geom_point(aes(wt-0.027, mpg), shape="\u25D6", colour="red", size=3) +
+#   geom_point(aes(wt+0.027, mpg), shape="\u25D7", colour="blue", size=3) +
+#   theme_bw()# c(24, 0,  7, 9, 4,19)# ?points for symbols
+
+# Keeping it the same colors as the tree
+# allComb$names =  c('Mexico','Florida','California','Hawai`i', 'Kauai', 'Kwajalein Atoll','Guam')#, 'Thailand')
+# (Figure 1) (E8601C for Hawaii, 1965B0 for Guam, 7BAFDE for RMI, CAE0AB for Cali, 90C987 for Florida, and 4EB265 for Thai).
+
+Place.colors = c("#90C987", "#CAE0AB", "#E8601C", "#1965B0", "#7BAFDE", "#4EB265")
+
+
+
+# Place.colors = c("coral", "grey45", 'cyan', "darkgreen", "royalblue4","#E7298A", "purple")#, "#1B9E77" # This includes Kauai
+LocalityColors <- rgb(rbind(c(165, 42, 42), c(0,0,255), c(200,200,200)), max = 255, alpha = 50)
+# 
+# "moccasin"
+# "maroon4"
+# "magenta"
+# "honeydew"
+# "azure"
+# "bisque1"
+# "darkseagreen4"
+# "darkorchid1"
+# "forestgreen"
+# "orchid"
+# "royalblue4"
+# "springgreen"
+# "aquamarine" 
+# "darkolivegreen2"
+# "darkturquoise"
+# "dodgerblue" 
+# "palevioletred" 
+# "springgreen4"
+# "mediumpurple4"
+# "grey45"
+# "wheat4"
+# "steelblue1"
+# "purple4"
+# 'plum'
+
+allComb$PlaceColors <-Place.colors
+allComb$Locality <- c(rep('Continental America', 2), 
+                      rep('Remote Oceania', 3), 
+                      rep('SouthEast Asia', 1))
+
+allComb$LocalityColors <- c(rep(LocalityColors[1], 3), 
+                            rep(LocalityColors[2], 2), 
+                            rep(LocalityColors[3], 1))
+# colors()
+
+# install.packages('ragg')
+library(ragg)
+library(maps)
+library(terra)
+
+
+
+ortho_crs <-'+proj=ortho +lat_0=20.3972222 +lon_0=179.793732 +x_0=0 +y_0=0 +R=6371000 +units=m +no_defs +type=crs' #21.3972222
+data("wrld_simpl")
+w <- vect(wrld_simpl)
+ocean <- st_point(x = c(0,0)) %>%
+  st_buffer(dist = 6371000) %>%
+  st_sfc(crs = ortho_crs )
+
+# wOrtho <- terra:::project(w, ortho_crs)wOrtho <- terra:::project(w, ortho_crs, partial = T)
+wOrtho <- terra:::project(w, ortho_crs, partial = T)
+# png(filename = "Rplot%03d.png",
+#     width = 800, height = 900, units = "px", 
+#     pointsize = 12,
+#     bg = "white",
+#     type = c("cairo-png"), 
+#     symbolfamily = "Symbola")
+# cairo_pdf("p1.pdf", family="Arial Unicode MS", 4,4)
+
+
+pngorsvg <- 'svg'
+
+if(pngorsvg == 'png'){
+ctry(ragg::agg_png(paste0(Loc, "delete.png"), width = 550, height = 550), T)
+}
+
+if(pngorsvg == 'svg'){
+  svg(filename = paste0(DT, '/worldplot.svg'), width = 550/22, height = 550/22, pointsize = 40)#, type="cairo")
+}
+# dev.control(displaylist = 'enable')
+par(family = "Symbola", mar=c(8, 4, 8, 4) + 0.1)
+
+plot(ocean, col = "aliceblue", lwd = 0.25)
+plot(wOrtho, add = T, col = 'lightyellow', lwd = 0.2)
+ConPoly <- terra:::project(terra:::convHull(vect(
+  ForConHull_Cont[,c(2,1)], crs = crs(w))), ortho_crs) 
+RemPoly <- terra:::project(terra:::convHull(vect(
+  ForConHull_Remote[,c(2,1)], crs = crs(w))), ortho_crs) 
+# plot(ConPoly, add = T, col = 'red')
+# plot(RemPoly, add = T, col = 'blue')
+allComb_Proj <- terra:::project(terra:::vect(as.matrix(allComb[,2:1]), crs = crs(w)), ortho_crs) 
+plot(buffer(ConPoly, 275000), add = T, col = LocalityColors[1], lty = 0)
+plot(buffer(RemPoly, 350000), add = T,  col = LocalityColors[2], lty = 0)
+plot(allComb_Proj,  add = T, pch = 21, bg = scales:::alpha(Place.colors, 0.75), cex = 3, lty = 1)
+# This gives the half circles
+# plot(allComb_Proj[4:5],  add = T, pch = symbol[2:3], col = scales:::alpha(Place.colors[4:5], 0.75), cex = 2, lty = 1)
+
+# leg <- legend(x = 'topright', title = 'Continental\nAmerica', 
+#               legend = allComb$names[1:3], #xpd = NA, 
+#               bg = LocalityColors[1], 
+#               cex = 1.25,
+#               pch =  '\U25CF', 
+#               col= Place.colors[1:3], 
+#               pt.lwd = 1, pt.cex = 2, 
+#               # text.width = strwidth(allComb$names[1:3])[1]*2,
+#               box.col = 'white', 
+#               title.cex = 1.5, 
+#               plot = F)
+# 
+# # adjust as desired
+# leftx <- leg$rect$left
+# rightx <- (leg$rect$left + leg$rect$w)
+# topy <- leg$rect$top
+# bottomy <- (leg$rect$top - leg$rect$h) * 1
+par(xpd = T)
+
+legend("topright", 
+       title = 'Continental America', 
+       legend = allComb$names[1:2], #xpd = NA, 
+       bg = LocalityColors[1], 
+       cex = 1.25,
+       pch =  '\U25CF', 
+       col= Place.colors[1:2], 
+       pt.lwd = 1, pt.cex = 2, 
+      # text.width = strwidth(allComb$names[1:3])[1]*2,
+       box.col = 'white',
+      # box.lwd = 4,
+       title.cex = 1.5,
+      horiz = T, 
+      xpd = NA,
+      inset=c(0,-.2))
+
+legend(x = 'bottom', title = 'Remote Oceania', 
+       legend = allComb$names[c(3:5)], 
+       bg= LocalityColors[2], 
+       cex = 1.25,
+       pch = ('\U25CF'), #c('\U25D7', '\U25D6', '\U25CF', '\U25CF'), 
+       col = Place.colors[3:5], 
+       pt.lwd = 1, 
+       pt.cex = c(2),
+       box.col = 'white', 
+       title.cex = 1.5,
+       horiz = F, 
+       xpd = NA,
+       inset=c(0,-.355), 
+       ncol = 1)
+
+legend(x = 'topleft', title = 'SouthEast Asia', 
+       legend = allComb$names[c(6)], 
+       bg= LocalityColors[3], 
+       cex = 1.25,
+       pch = ('\U25CF'), #c('\U25D7', '\U25D6', '\U25CF', '\U25CF'), 
+       col = Place.colors[6], 
+       pt.lwd = 1, 
+       pt.cex = c(2),
+       box.col = 'white', 
+       title.cex = 1.5,
+       horiz = F, 
+       xpd = NA,
+       inset=c(0,-.150), 
+       ncol = 1)
+
+# x = recordPlot()
+try(graphics.off(), T)
+try(knitr::include_graphics(paste0(Loc, "delete.png")), T)
+# 
+# x
+# dev.off()
+# windowsFonts()
+# windowsFonts("Arial Unicode MS" = windowsFont("Arial Unicode MS"))
+# par(family = "Arial Unicode MS")
+``` 
+
+
+```{r AlboMitoGenomeTree, echo=FALSE, fig.height=10, fig.width=8.5, message=FALSE, warning=FALSE, autodep=TRUE, results = F, paged.print=TRUE}
+
+#From: https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0243927
+
+MitoLoc <- paste0(Loc, 'Mitogenome/')
+
+MitoLocFasta <- list.files(paste0(MitoLoc,"albo_mitogenome_12_20_24/"), full.names = T)
+MitoNames <- list.files(paste0(MitoLoc,"albo_mitogenome_12_20_24/"), full.names = F)
+
+
+InstallPackages <- F
+
+if (InstallPackages) {
+  if (!requireNamespace("BiocManager", quietly=TRUE))
+    # install.packages("BiocManager")
+    install.packages("BiocManager", repos = "https://cloud.r-project.org")
+  BiocManager::install("msa")
+  BiocManager::install("treeio")
+  install.packages("adegenet")
+  install.packages("ape")
+  BiocManager::install("ggtree")
+  install.packages("ggplot2")
+  install.packages("ips")
+  BiocManager::install("bios2mds")
+  BiocManager::install("haplotypes")
+  BiocManager::install("pegas")
+  BiocManager::install("phytools")
+  install.packages("stats", repos='http://mirrors.dotsrc.org/cran/')
+  # install.packages("treeio", repos='http://mirrors.dotsrc.org/cran/')
+  # BiocManager::install("treeio")
+  # BiocManager::install("treeio", type = "source", checkBuilt = TRUE)
+  # devtools::install_github("YuLab-SMU/treeio")
+  BiocManager::install("Biostrings")
+}
+
+library(adegenet)
+library(ape)
+library(ggtree)
+library(ggplot2)
+library(stats)
+library(ips)
+library(msa)
+library(stringr)
+library(phangorn)
+library(seqinr)
+
+# 
+# 
+# 
+# 
+# 
+# for(fi in 1:length(MitoNames)){
+#   read.fasta(MitoLocFasta[fi])
+#   MitoNames[fi]
+# }
+
+
+
+
+
+
+
+# 
+# fname = paste0(MitoLoc, "Albopictus_Pacific.fasta")#You must enter the name of the data set you want to read.
+AlboInfo <- read.csv(paste0(MitoLoc, 'Albo.csv'))
+
+InstallPackages <- F
+
+if (InstallPackages) {
+  if (!requireNamespace("BiocManager", quietly=TRUE))
+    # install.packages("BiocManager")
+    install.packages("BiocManager", repos = "https://cloud.r-project.org")
+  BiocManager::install("msa")
+  BiocManager::install("treeio")
+  install.packages("adegenet")
+  install.packages("ape")
+  BiocManager::install("ggtree")
+  install.packages("ggplot2")
+  install.packages("ips")
+  BiocManager::install("bios2mds")
+  BiocManager::install("haplotypes")
+  BiocManager::install("pegas")
+  BiocManager::install("phytools")
+  install.packages("stats", repos='http://mirrors.dotsrc.org/cran/')
+  # install.packages("treeio", repos='http://mirrors.dotsrc.org/cran/')
+  # BiocManager::install("treeio")
+  # BiocManager::install("treeio", type = "source", checkBuilt = TRUE)
+  # devtools::install_github("YuLab-SMU/treeio")
+  BiocManager::install("Biostrings")
+}
+
+library(adegenet)
+library(ape)
+library(ggtree)
+library(ggplot2)
+library(stats)
+library(ips)
+library(msa)
+library(stringr)
+library(phangorn)
+library(seqinr)
+
+
+file <- readDNAStringSet(MitoLocFasta)
+# nname<-as.matrix(sort(labels(nbin)))#to construct population names f
+# file <- readDNAStringSet(fname)
+
+#Removing Japonicus
+# file <- file[-which(labels(file)=='Ae21OCNV006_MT'),]
+
+# From Sangwoo Email 12/20/24
+# Out of the total 133 samples, 132 have been completed. 
+# Ab21GELI001 was excluded as it could not be assembled.
+# Ab22TRTO002 and BL21-291412 are not included in 
+# this study anymore. Those are from Trinidad and Mexico.
+GTips <-  c("BL21-291412", 'Ab21GELI001', 'Ab23TRTO002', 'Ab22TRTO002') 
+
+if(length(which(labels(file) %in% GTips)) > 0){
+  file <- file[-which(labels(file) %in% GTips),]
+}
+
+
+labels(file)[which(labels(file) == 'AbUNKN25')] <- 'Ab19HONA001'
+
+
+# AlboInfoSort <- c()
+# for(uA in labels(file)){
+#   
+#   # uA <- "Ab15ILL001_MT"
+#   ST1 <- which(str_detect(paste0(AlboInfo$Sample.ID, '_MT'), uA ))
+#   if(length(ST1) == 0){
+#     if(uA == "Ab21FMCD001_MT"){
+#       ST1 <- which(str_detect(paste0(AlboInfo$Sample.ID, '_MT'), "Ab21FMDC001_MT"))
+#     }
+#     
+#     if(uA == "Ab21FMCD002_MT"){
+#       ST1 <- which(str_detect(paste0(AlboInfo$Sample.ID, '_MT'), "Ab21FMDC002_MT"))
+#     }
+#     
+#     if(uA == "Ab21LCON002_MT_(reversed)"){
+#       ST1 <- which(str_detect(paste0(AlboInfo$Sample.ID, '_MT'), "Ab21LCON002_MT"))
+#     }
+#     
+#     if(uA == "Ab21PWFT002-MT"){
+#       ST1 <- which(str_detect(paste0(AlboInfo$Sample.ID, '_MT'), "Ab21PWFT002_MT"))
+#     }
+#     
+#     if(uA == "BL21-291412_MT_(reversed)"){
+#       ST1 <- which(str_detect(paste0(AlboInfo$Sample.ID, '_MT'), "BL21-291412_MT"))
+#     }
+#     
+#     
+#     # if(uA == "Ae21OCNV006_MT"){
+#     #
+#     #   # Have to check with Sangwoo on this one
+#     #   next()
+#     #   # ST1 <- which(str_detect(paste0(AlboInfo$Sample.ID, '_MT'), "Ae21CONV006_MT"))
+#     # }
+#     
+#     if(length(ST1) == 0){
+#       stop()
+#     }
+#     
+#     
+#     
+#   }
+#   if(uA == labels(fname)[1]){
+#     AlboInfoSort <- ST1
+#   }else{
+#     AlboInfoSort <- c(AlboInfoSort, ST1)
+#   }
+# }
+
+# AlbInfoSORTED <- file #AlboInfo[AlboInfoSort,]
+
+# OnlyAlbo <- which((AlbInfoSORTED$Species == "albopictus")==T)
+# AlbInfoSORTED <- AlbInfoSORTED[OnlyAlbo,]
+file2 <- file #[OnlyAlbo,]
+names(file2)
+
+# names(file2) <- str_replace_all(names(file2), "[_MT_MT_(reversed)]", "")
+
+AlignNeeded = F # The program reads fasta file and aligns it
+pckg <- c('rlang', 'glue','R.utils','stringr',
+          'vcfR', 'adegenet',  'phangorn', 'ape')
+# "genlight", "genclone", "genind", "snpclone")#,'devtools'  'easystats','pinfsc50', )
+
+library(adegenet)
+library(poppr)
+# library(hierfstat)
+
+#  install.packages("phangorn",repos = "http://cran.us.r-project.org", dependencies = T)
+#install.packages("BiocManager",repos = "http://cran.us.r-project.org", dependencies = T)
+
+#BiocManager::install(c("Biostrings", "seqLogo"))#,repos = "http://cran.us.r-project.org", dependencies = T)
+
+# remotes::install_github("KlausVigo/phangorn")
+# install.packages('devtools',repos = "http://cran.us.r-project.org", dependencies = T)
+#    devtools::install_github("KlausVigo/phangorn")
+# }
+
+for(i in 1:length(pckg)) {
+  # if (pckg[i] %in% installed.packages() == F) {
+  #   install.packages(pckg[i],repos = "http://cran.us.r-project.org", dependencies = T)
+  # }
+  print(pckg[i])
+  do.call("library", list(pckg[i]))
+}
+
+
+if (AlignNeeded) {
+  
+  cb<- msa(file2, method = 'Muscle') # multiple sequence alignment from msa package using the MUSCLE algorithm, default parameters
+  
+  nbin<-as.DNAbin(cb) #read aligned data from cb above
+  
+  an<-as.alignment(nbin)  #converting DNAbin to alignment format
+  # nm<-msa:::as.matrix(an)       #converting alignment to matrix
+  nbinmat<-as.matrix(labels(nbin)) #extraction of the sample names
+  dnbinML<-dist.ml(nbin)
+  
+  ML_ModTest <- modelTest(as.phyDat(cb), multicore = T, mc.cores = 8)
+  
+  
+  
+  save(cb, nbin, dnbinML,  ML_ModTest, file = paste0(MitoLoc, 'OnlyAlbo_MUSCLE_Align.RData'))
+  
+}else{
+  load(paste0(MitoLoc, 'OnlyAlbo_MUSCLE_Align.RData'))
+}
+#
+# # msaMuscle(help = T) cluster = "upgmamax"
+#
+#
+if(file.exists(paste0(Loc, 'MtDNA_ML_tree.RData'))==F){
+  # The function dist.ml from phangorn offers the substitution models “JC69” and “F81” for DNA, and also common substitution models for amino acids (e.g. “WAG”, “JTT”, “LG”, “Dayhoff”, “cpREV”, “mtmam”, “mtArt”, “MtZoa” or “mtREV24”).
+  fit_mt <- pml_bb(ML_ModTest, control = pml.control(trace = 0))
+  
+  cat('\n Running NJ trees using bitwise distance \n')
+  treeNJ_mtDNA <- NJ(dnbinML)
+  fun <- function(x) NJ(dist.ml(x))
+  bs_NJ <- bootstrap.phyDat(as.phyDat(nbin),fun, bs = 1000)
+  save(fit_mt, bs_NJ,  file = paste0(Loc, 'MtDNA_ML_tree.RData'))
+}else{
+  load(paste0(Loc, 'MtDNA_ML_tree.RData'))
+}
+
+
+
+
+
+
+```
+
+
+```{r AlboGenMtTree, echo=F, fig.cap="\\label{fig:AlboGenMtTree} Comparison of the Nuclear Neighbor-Joining (NJ)) and mitochondrial Maximum Likelihood phylogenies.  Bootstrap values for each node that are above 70 is shown. Colors represent areas of origin defined in Figure 1.", fig.height=11, fig.width=8.5, message=FALSE, warning=FALSE, paged.print=TRUE, results=FALSE, utodep=TRUE}
+
+
+# Just in case a
+library(dendextend)
+library(seqinr)
+library(phytools)
+library(phangorn)
+library(stringr)
+
+# Genome Tree
+
+# Whole genome analysis from Super
+load(paste0(Loc, 'Tree_PopGenPhyloOutput.RData'))
+
+# cophylo(GenomeNJ_Dendrogram, 
+#         tangle = 'left',
+#         fn=function(x){abs(x)}, verbose = F)
+
+Guam <- c('0CHV', 'GEPHL', 'MANU', 'CHV')
+GuamNMS <- 'Guam'
+Kwajalien <- c('KWAJ', 'ENN', 'ENU', 'GELI', 'ROI', 'ILL')
+KwajNMS <- c('Kwajelein', 'Ennalaybegan', 'Ennugaret', 'Gelinum', 'Roi-Namur', 'Illigini')
+HawaiiIsland <- c('MANU', 'UHIH', 'COOK', 'HONAUN', 'HONA', 'KAHO', 'KAHENA','KALAPA', 'KALAPANA', 'KAWA', 'KOA', 
+                  'HONO', 'MIMA', 'PUNALU', 'HONAUN', 'SEAMM', 'SEAV' , 'SEAVP', 'SEA', 'SHIP', 
+                  'WAIO', 'WHITBP', 'KAUA', 'LIHU', 'KULA', 'HANA', 'KAHU', 'WAIN', 'HMR4', 'OME', 'ETA','OSB', 
+                  'TA', 'TSB', 'WSB', 'HNL', 'TMC')
+HawaiiIslandNms <- c('Manuka', 'UH Hilo', 'Choice Mart', 'Honaunau','Honaunau', 'Honokonau Kaloko National Park', 
+                     'Kahena', 'Kalapana', 'Kalapana','Kawaihae', 'Kona International Airport', 
+                     'Kona Sailing Club', "Miloi'i-Manuka", "Punalu'u Boat Ramp", "Pu'uhonua O Honaunau NHP", 
+                     "Sea Mountain Makai Parking", 'Sea View house', 'Sea View Park', 'Sea View', "Shipman Kaloli Point", 
+                     "Waiohinu", "Whittington Beach Park",'Kauai', 'Kauai', 'Maui', 'Maui', 'Maui', 'Mauai', 'Oahu', 'Oahu', 'Oahu',
+                      'Oahu', 'Oahu', 'Oahu', 'Oahu', 'Oahu')
+# KauaiIsland <- c('KAUA')
+# KauaiIslandNMS <- c('Kauai') 
+
+California <- c('GLA', 'ORA', 'SGV')
+CaliforniaNMS <- c('Whittier', "Anaheim", 'Alhambra')
+Florida <- c('PWFT', 'FMDC', 'LCON','FJLH', 'FVPN')
+FloridaNMS <- c('Palm Beach Co', 'Miami Dade Co', 'Leon Co', 'Jackson Co', 'Volusia Co')
+Thailand <- c("BKRA")
+ThailandNMS <- c('Bang Krachao')
+Mexico <- 'BL21-'
+MexicoNms <- 'Yucatan, Mexico'
+
+# write.tree(phy= treeNJ_gDNA , file="exported_tree.newick")
+
+# NewickTree <- read.tree('exported_tree.newick')
+
+Ge_Rooted <- root(midpoint(treeNJ_gDNA), 
+                  outgroup=c("Ab21BKRA-A002", "Ab22BKRA-A004", "Ab22BKRA-A005"), 
+                  resolve.root=T)
+
+GenomeNJ_Dendrogram <- chronos(Ge_Rooted, model = 'correlated')
+
+
+# From Sangwoo Email 12/20/24
+
+# Ab22TRTO002 and BL21-291412 are not included in this study anymore. 
+# Those are from Trinidad and Mexico.
+# Ab19HONA001 should be called AbUNKN25 # see below for Yoosook correction
+# There are four samples that should be started with Ae. Ae17SGV018, Ae17GLA019, Ae17ORA045, and Ae22UHIH001 (There are both Ab22UHIH001 and Ae22UHIH001 in this study, so we need to keep Ae22UHIH001 to distinguish them). They are called Ae because they are first identified as Aegypti. To keep consistent with our sample database, please keep starting with Ae.
+# Ab21SEA should be Ab21SEAMM, and Ab21SHIPN should be Ab21SHIPMN.
+
+
+# GenomeNJ_Dendrogram$tip.label <- str_replace(GenomeNJ_Dendrogram$tip.label, c('Ae') , 'Ab')
+# GenomeNJ_Dendrogram$tip.label <- str_replace(GenomeNJ_Dendrogram$tip.label, c('SEAMM') , 'SEA')
+# GenomeNJ_Dendrogram$tip.label <- str_replace(GenomeNJ_Dendrogram$tip.label, c('SHIPMN') , 'SHIPN')
+# GenomeNJ_Dendrogram$tip.label <- str_replace(GenomeNJ_Dendrogram$tip.label, c('FMDC') , 'FDC')
+
+# From Yoosook Email 1/23/24
+# "Ab19HONA001 should be correct sample id for data labeled AbUNKN25."
+GenomeNJ_Dendrogram$tip.label <- str_replace(GenomeNJ_Dendrogram$tip.label, c('AbUNKN25') , 'Ab19HONA001')
+GenomeNJ_Dendrogram$tip.label <- str_replace(GenomeNJ_Dendrogram$tip.label, c('HANA004') , 'HANA003')
+
+# Changine the following to matcht Ab21KAHO113, Ab21KAHO114, Ab21KAHO115, Ab21KAHO116
+
+GenomeNJ_Dendrogram$tip.label <- str_replace(GenomeNJ_Dendrogram$tip.label, c('AbKAHO113') , 'Ab21KAHO113')
+GenomeNJ_Dendrogram$tip.label <- str_replace(GenomeNJ_Dendrogram$tip.label, c('AbKAHO114') , 'Ab21KAHO114')
+GenomeNJ_Dendrogram$tip.label <- str_replace(GenomeNJ_Dendrogram$tip.label, c('AbKAHO115') , 'Ab21KAHO115')
+GenomeNJ_Dendrogram$tip.label <- str_replace(GenomeNJ_Dendrogram$tip.label, c('AbKAHO116') , 'Ab21KAHO116')
+
+# Tips that don't match to mtDNA
+
+# From Sangwoo Email 12/20/24
+# Out of the total 133 samples, 132 have been completed. 
+# Ab21GELI001 was excluded as it could not be assembled.
+# Ab22TRTO002 and BL21-291412 are not included in 
+# this study anymore. Those are from Trinidad and Mexico.
+GTips <-  c("BL21-291412", 'Ab21GELI001', 'Ab23TRTO002', 'Ab22TRTO002') #c('Ab21FVPN003', 'Ab21FVPN002', 'Ab20GEPHL001', 'Ab15KWAJ003')
+
+GenomeNJ_Dendrogram <- drop.tip(GenomeNJ_Dendrogram, GTips)
+
+# colors
+# cols <- c("California" = "red",
+#           "Florida" = "blue", 
+#           "Hawaii_Island.Hawaii" = "darkgreen", 
+#           "Kauai.Hawaii" = "lightgreen",
+#           "Guam" = 'orange', 
+#           'Mexico' = 'yellow',
+#           'Kwajalein.Atoll' = 'purple'
+# )
+
+
+# MtDNA tree
+
+load(paste0(Loc, 'MtDNA_ML_tree.RData'))
+
+
+ml.a.rooted<-root(midpoint(fit_mt$tree),
+                  outgroup=c("Ab21BKRA-A002", "Ab22BKRA-A004", "Ab22BKRA-A005"), resolve.root=T)
+
+# ml.a.rooted<-root(midpoint(treeNJ_mtDNA),
+#                   outgroup="BL21-291412", resolve.root=T)
+
+
+ml.a.rooted<- ape:::chronos(ml.a.rooted)
+
+ml.a.rooted$tip.label <- str_replace(ml.a.rooted$tip.label, c('Ab17') , 'Ae17')
+ml.a.rooted$tip.label <- str_replace(ml.a.rooted$tip.label, c('AbKAHO') , 'Ab21KAHO')
+
+
+# ml.a.rooted$tip.label <- str_replace(ml.a.rooted$tip.label, c('FCD') , 'FDC')
+# ml.a.rooted$tip.label <- str_replace(ml.a.rooted$tip.label, c('PWF') , 'PWFT')
+# ml.a.rooted$tip.label <- str_replace(ml.a.rooted$tip.label, c('PWFTTTTTTTT') , 'PWFT')
+# ml.a.rooted$tip.label <- str_replace(ml.a.rooted$tip.label, c('PWFTTT') , 'PWFT')
+# ml.a.rooted$tip.label <- str_replace(ml.a.rooted$tip.label, c('PWFTT') , 'PWFT')
+# ml.a.rooted$tip.label <- str_replace(ml.a.rooted$tip.label, c('002-') , '002')
+# ml.a.rooted$tip.label <- str_replace(ml.a.rooted$tip.label, 'ANU' , 'MANU')
+# ml.a.rooted$tip.label <- str_replace(ml.a.rooted$tip.label, c('WHIBP') , 'WHITBP')
+# ml.a.rooted$tip.label <- str_replace(ml.a.rooted$tip.label, c('IA002') , 'MIMA002')
+# ml.a.rooted$tip.label <- str_replace(ml.a.rooted$tip.label, c('IA001') , 'MIMA001')
+# ml.a.rooted$tip.label <- str_replace(ml.a.rooted$tip.label, c('IA005') , 'MIMA005')
+
+# Removing tips that don't have matching genomes
+# Ab21GELI001 was excluded as it could not be assembled.
+# MTTips <- c('Ab17SGV041')#, 'Ab19HONA001')
+# ml.a.rooted <- drop.tip(ml.a.rooted, MTTips)
+
+# colors
+# cols <- c("California" = "red",
+#           "Florida" = "blue", 
+#           "Hawaii_Island.Hawaii" = "darkgreen", 
+#           "Kauai.Hawaii" = "lightgreen",
+#           "Guam" = 'orange', 
+#           'Mexico' = 'yellow',
+#           'Kwajalein.Atoll' = 'purple'
+# )
+
+# assoc<-cbind(
+#   sort(GenomeNJ_Dendrogram$tip.label),
+#   sort(ml.a.rooted.dd$tip.label))
+# GenomeNJ_Dendrogram2 <- GenomeNJ_Dendrogram
+# ml.a.rooted2 <- ml.a.rooted
+
+GnNames <- GenomeNJ_Dendrogram$tip.label
+MtNames <- ml.a.rooted$tip.label
+
+for(TwoTrees in c('GnNames','MtNames')){
+  for(Nc in 1:length(get(TwoTrees))){
+    # Nc <- 10
+    c <- get(TwoTrees)[Nc]
+    # if(c == "Ab22OSB7-002"){
+    #   break
+    # }
+    if(length(which(str_detect(c, Guam)==T))>=1){
+      c2 <- paste0('GU-', c)
+    }
+    
+    if(length(which(str_detect(c, Kwajalien)>=T))>=1){
+      c2 <- paste0('RMI-', c)
+    }
+    
+    if(length(which(str_detect(c, HawaiiIsland)==T))>=1){
+      c2 <- paste0('IH-', c)
+      
+      if((HawaiiIslandNms[which(str_detect(c, HawaiiIsland)==T)] %in% c('Oahu'))[1] == T){
+        c2 <- paste0('HO-', c)
+        # break()
+      }else{
+        if((HawaiiIslandNms[which(str_detect(c, HawaiiIsland)==T)] %in% ('Kauai'))[1]==T){
+          c2 <- paste0('HK-', c)
+        }else{
+          if((HawaiiIslandNms[which(str_detect(c, HawaiiIsland)==T)] %in% c('Maui'))[1] == T){
+            c2 <- paste0('HM-', c)
+          }
+        }
+      }
+    }
+    
+    # if(length(which(str_detect(c, KauaiIsland)==T))>=1){
+    #   LabJNK <- 'Kauai Island'
+    #   LabColJnk <- allComb[3, 'PlaceColors']
+    # }
+    
+    if(length(which(str_detect(c, California)==T))>=1){
+      c2 <- paste0('CA-', c)
+    }
+    
+    if(length(which(str_detect(c, Florida)==T))>=1){
+      c2 <- paste0('FL-', c)
+    }
+    
+    # if(length(which(str_detect(c, Mexico)==T))>=1){
+    #   LabJNK <- 'Mexico'
+    #   LabColJnk <- allComb[2, 'PlaceColors']
+    # }
+    
+    if(length(which(str_detect(c, Thailand)==T))>=1){
+      c2 <- paste0('TH-', c)
+    }
+    if(length(c2)==0){
+      cat(paste0('Somethings Wrong with ', Nc))
+      break()
+    }
+    # 
+    # if(Nc == 81){
+    #   break
+    # }
+    
+    if((str_split(c, '-')[[1]][1] == str_split(c2, '-')[[1]][2])==F){
+      cat(paste0('/n huh ', str_split(c, '-')[[1]][1], ' and ', str_split(c2, '-')[[1]][2]))
+      break
+    }
+        
+    
+    
+    if(Nc == 1){
+      c2assoc <- c2
+    }else{
+      c2assoc <- c(c2assoc, c2)
+    } # cat(paste0('\n', Nc, ':', c, ' : ', LabColJnk, ' : ', LabJNK))
+  }
+  if(TwoTrees == 'GnNames'){
+    GnNamesAssoc <- c2assoc
+  }else{
+    MtNamesAssoc <- c2assoc
+  }
+}
+
+
+GenomeNJ_Dendrogram$tip.label <- GnNamesAssoc
+ml.a.rooted$tip.label <- MtNamesAssoc
+
+GnNames <- GenomeNJ_Dendrogram$tip.label
+MtNames <- ml.a.rooted$tip.label
+
+
+assoc <- c()
+for(i in GnNames){
+  nmin <- which(MtNames == i)
+  if(length(nmin) == 0){
+    next
+  }else{
+    as <- cbind(i, MtNames[nmin])
+    assoc <- rbind(assoc, as)
+  }
+}
+
+# plot(GenomeNJ_Dendrogram, cex = 0.5)
+
+GenomeNJ_Dendrogram2 <-(rotateNodes(GenomeNJ_Dendrogram, nodes = c(GenomeNJ_Dendrogram$edge[[4]]), 
+                                    GenomeNJ_Dendrogram$edge[[5]]))
+
+
+obj<-cophylo(GenomeNJ_Dendrogram2, ml.a.rooted,
+             assoc=assoc, rotate=F, tangle = 'both', 
+             fn=function(x) abs(x), verbose = F, 
+             use.edge.length=T)
+
+
+
+FirstTree <- obj$assoc[,1]#obj$trees[[1]]$tip.label
+for(Nc in 1:length(FirstTree)){
+  # Nc <- 10
+  c <- FirstTree[Nc]
+  if(length(which(str_detect(c, Guam)==T))>=1){
+    LabJNK <- 'Guam'
+    LabColJnk <- allComb[5, 'PlaceColors']
+  }
+  
+  if(length(which(str_detect(c, Kwajalien)>=T))>=1){
+    LabJNK <- 'Kwajalien Atoll'
+    LabColJnk <- allComb[4, 'PlaceColors']
+  }
+  
+  if(length(which(str_detect(c, HawaiiIsland)==T))>=1){
+    LabJNK <- 'Hawaii Island'
+    LabColJnk <- allComb[3, 'PlaceColors']
+  }
+  
+  # if(length(which(str_detect(c, KauaiIsland)==T))>=1){
+  #   LabJNK <- 'Kauai Island'
+  #   LabColJnk <- allComb[3, 'PlaceColors']
+  # }
+  
+  if(length(which(str_detect(c, California)==T))>=1){
+    LabJNK <- 'California'
+    LabColJnk <- allComb[2, 'PlaceColors']
+  }
+  
+  if(length(which(str_detect(c, Florida)==T))>=1){
+    LabJNK <- 'Florida'
+    LabColJnk <- allComb[1, 'PlaceColors']
+  }
+  
+  # if(length(which(str_detect(c, Mexico)==T))>=1){
+  #   LabJNK <- 'Mexico'
+  #   LabColJnk <- allComb[2, 'PlaceColors']
+  # }
+  
+  if(length(which(str_detect(c, Thailand)==T))>=1){
+    LabJNK <- 'Thailand'
+    LabColJnk <- allComb[6, 'PlaceColors']
+  }
+  if(length(LabColJnk)==0){
+    cat(paste0('Somethings Wrong with ', Nc))
+    break()
+  }
+  # 
+  # if(Nc == 81){
+  #   break
+  # }
+  
+  
+  if(Nc == 1){
+    Label <- LabJNK    
+    LabColor <- LabColJnk
+  }else{
+    LabColor <- c(LabColor, LabColJnk)
+    Label <- c(Label, LabJNK)
+  }
+  
+  # cat(paste0('\n', Nc, ':', c, ' : ', LabColJnk, ' : ', LabJNK))
+}
+
+
+pngorsvg <- 'svg'
+
+if(pngorsvg == 'png'){
+png(filename = paste0(DT, '/Tanglegram.png'), width = 1500, 
+        height = 1900, pointsize = 18, type="cairo")
+}
+
+if(pngorsvg == 'svg'){
+  svg(filename = paste0(DT, '/Tanglegram.svg'), width = 1500/45, 
+      height = 1900/45, pointsize = 30)#, type="cairo")
+}
+
+obj2 <- obj
+par(xpd = NA, oma=c(12, 2, 1, 2) + 0.1)
+plot(obj2,
+     link.type="curved",
+     link.lwd=10,
+     link.lty="solid",
+     lwd = 3 ,
+     link.col=make.transparent(LabColor,0.45),
+     fsize= 0.64, #0.47, #72,
+     # edge.col = LabColor,
+     type = 'phylogram',
+     use.edge.length= T)
+
+# Making Node labels the same for mtDNA as it is for nucDNA
+mtDNABoot <- obj2$trees[[2]]$node.label[2:length(obj2$trees[[2]]$node.label)]
+# obj$trees[[2]]$node.label[2:length(obj$trees[[2]]$node.label)] <-
+#   as.numeric(obj$trees[[2]]$node.label)[2:length(obj$trees[[2]]$node.label)] * 100
+mtDNABoot <- as.numeric(mtDNABoot) * 100 
+# subsetting by nodes with > 70% bootstrap
+mtDNABoot[which(mtDNABoot < 70)] <- ''
+obj2$trees[[2]]$node.label[2:length(obj2$trees[[2]]$node.label)] <- mtDNABoot
+
+nucDNABoot <-  obj2$trees[[1]]$node.label[2:length(obj2$trees[[1]]$node.label)]
+nucDNABoot[which(as.numeric(as.character(nucDNABoot)) < 70)] <- ''
+nucDNABoot[which(nucDNABoot == 'NA')] <- ''
+obj2$trees[[1]]$node.label[2:length(obj2$trees[[1]]$node.label)]<- nucDNABoot
+
+# Plotting the nodes, from http://blog.phytools.org/2016/08/empirical-co-phylogenetic-cophylo.html
+
+nodes<-1:obj2$trees[[1]]$Nnode+Ntip(obj2$trees[[1]])
+cexNuc <- (as.numeric(obj2$trees[[1]]$node.label)/100)#+0.00001
+cexNuc[which(is.na(cexNuc))] <- NA#.0000001
+cexNuc[1] <- 1
+
+# rounding to get base
+BootRound <- round(as.numeric(obj2$trees[[1]]$node.label))
+ 
+in90to100 <- which(BootRound %in% c(90:100))
+in80to89 <- which(BootRound %in% c(80:89))
+in70to79 <- which(BootRound %in% c(70:79))
+BootRound[in90to100]<- alpha("#CC79A7", 0.45)
+BootRound[in80to89]<- alpha("#DDCC77", 0.45)
+BootRound[in70to79]<- alpha("grey", 0.45)
+
+
+
+colNuc <- cbind(BootRound,obj2$trees[[1]]$node.label) #alpha("purple", 0.45)
+colNuc[which(colNuc[,2] == ""), 1] <- alpha("lightblue", 0)
+colNuc[1,1] <- allComb$PlaceColors[1]
+
+nodelabels.cophylo(nodes, 
+                   text= rep('', length(obj2$trees[[1]]$node.label)),
+                   # col = 'NA', 
+                   # thermo = cexNuc,
+                   cex = 2.25, #as.numeric(cexNuc),
+                   # bg = alpha("lightblue", 0),
+                   # frame = 'n',
+                   lwd = 0.1,
+                   # adj= c(1.5, 0.5),#c(1.25,0.5),
+                   pch =16, 
+                   col =colNuc[,1], 
+                   bg = colNuc[,1],
+                   frame="none", #circle",#,#,cex=0.75,
+                   which="left")#, 
+                   # offset = 0.5)
+
+PortOfEntryHNL <- which(str_detect(obj2$trees[[1]]$tip.label, c('HNL'))==T)
+PortOfEntryHANA <- which(str_detect(obj2$trees[[1]]$tip.label, c('HANA'))==T)
+PortOfEntryKAHU <- which(str_detect(obj2$trees[[1]]$tip.label, c('KAHU'))==T)
+PortOfEntryKOA <- which(str_detect(obj2$trees[[1]]$tip.label, c('KOA'))==T)
+PortOfEntry<-sort(c(PortOfEntryHNL, PortOfEntryHANA, PortOfEntryKAHU, PortOfEntryKOA)) 
+
+tiplabels.cophylo(tip = PortOfEntry, pch = 21,  which=c("left"), col = 'yellow')
+
+
+nodes<-1:obj2$trees[[2]]$Nnode+Ntip(obj2$trees[[2]])
+
+
+# rounding to get base
+BootRound <- round(as.numeric(obj2$trees[[2]]$node.label))
+ 
+in90to100 <- which(BootRound %in% c(90:100))
+in80to89 <- which(BootRound %in% c(80:89))
+in70to79 <- which(BootRound %in% c(70:79))
+BootRound[in90to100]<- alpha("#CC79A7", 0.45)
+BootRound[in80to89]<- alpha("#DDCC77", 0.45)
+BootRound[in70to79]<- alpha("grey", 0.45)
+
+colMt <- cbind(BootRound ,obj2$trees[[2]]$node.label)
+colMt[which(colMt[,2] == ""), 1] <- alpha("lightblue", 0)
+colMt[1,1] <- allComb$PlaceColors[1]
+
+
+cexMt <- (as.numeric(obj2$trees[[2]]$node.label)/100)#+0.00001
+cexMt[which(is.na(cexMt))] <- NA#.0000001
+cexMt[1] <- 1
+
+nodelabels.cophylo(nodes, 
+                   text=rep('', length(obj2$trees[[2]]$node.label)),
+                                      # col = 'NA', 
+                   # thermo = cexNuc,
+                   cex = 2.25, #as.numeric(cexNuc),
+                   # bg = alpha("lightblue", 0),
+                   # frame = 'n',
+                   lwd = 0.1,
+                   # adj= c(1.5, 0.5),#c(1.25,0.5),
+                   pch =16, 
+                   col =colMt[,1],
+                   # cex = as.numeric(cexMt),
+                   bg = colMt[,1],
+                   frame="none", #,cex=0.75,
+                   which="right")
+                   # offset = 0.5)
+
+PortOfEntryHNL <- which(str_detect(obj2$trees[[2]]$tip.label, c('HNL'))==T)
+PortOfEntryHANA <- which(str_detect(obj2$trees[[2]]$tip.label, c('HANA'))==T)
+PortOfEntryKAHU <- which(str_detect(obj2$trees[[2]]$tip.label, c('KAHU'))==T)
+PortOfEntryKOA <- which(str_detect(obj2$trees[[2]]$tip.label, c('KOA'))==T)
+PortOfEntry<-sort(c(PortOfEntryHNL, PortOfEntryHANA, PortOfEntryKAHU, PortOfEntryKOA)) 
+
+tiplabels.cophylo(tip = PortOfEntry, pch = 21,  which=c("right"), col = 'yellow')
+
+text(x = -0.3, y = 1.03, cex = 1.5, 'Nuclear Phylogeny', font = 2)
+text(x = 0.3, y = 1.03, cex = 1.5, 'Mitogenome Phylogeny', font = 2)#, adj = 0)mtext('Nuclear Genome')#, side = 2)#, adj = 1)
+
+# legend('bottom', # x= -0.495567 +.2, y=0.6173455, 
+#         legend = c('Guam', 'Kwajalein', 'Hawaii Island (Hawaii)', 
+#                    'Kauai Island (Hawaii)', 'California', 'Florida', 'Mexico'),  
+#        fill=c('orange', 'purple', 'darkgreen', 'lightgreen', 'red', 'blue', 'yellow'),
+#        bty = 'n', horiz = F, cex = 0.75, ncol = 4) #0.6168193-0.6168
+
+legend(x = -0.623 + .15, y = 0.6315 -0.63, xpd = NA,  
+       legend = c(allComb$names[1:2],'Hawai`i', 
+                  'Republic of\nMarshall Islands\n(RMI)',# 'Kauai Island (Hawaii)', 
+                  allComb$names[5:6])[c(6,1,2,5,4,3)],  
+       fill= scales:::alpha(allComb$PlaceColors, 0.75)[c(6,1,2,5,4,3)],#c(allComb$PlaceColors[1:7]),
+       bty = 'n', horiz = F, 
+       cex = 1.25, 
+       ncol = 6, 
+       border = NA) # 0.6168193-0.6168
+
+
+
+legend(x = -0.623 + .42, y = 0.55 -0.63, xpd = NA,
+       # cex = 0.75,
+       title = 'Bootstrap Values (%)',
+       title.font = 2, 
+       legend = c('Root', '70-79%', '80-89%', '90-100%'), 
+       col= c('#4EB265',
+               alpha("grey", 0.45),
+               alpha("#DDCC77", 0.45), 
+               alpha("#CC79A7", 0.45)) ,#c(allComb$PlaceColors[1:7]),
+       bty = 'n', horiz = F, 
+       pch = 16, 
+       pt.cex = 2, 
+       cex = 1.25,
+       ncol = 4, 
+       border = NA) 
+
+
+
+dev.off()
+
+```
+
