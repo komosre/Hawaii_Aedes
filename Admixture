@@ -1,0 +1,24 @@
+## filtering biallelic SNP
+vcftools --gzvcf Original.vcf.gz --remove-indels --min-alleles 2 --max-allels 2 --max-alleles 2 --max-missing 0.0 --minDP 8.0 --maxDP 120.0 --minQ 30 --recode-INFO-all --stdout | bgzip -c > STEP1.vcf.gz
+
+### assigning number to chromosome and keep certain chromosome ###
+vcftools --gzv STEP1.vcf.gz --keep STEP2.txt --recode --recode-INFO-all --out STEP3
+bcftools query -f '%CHROM\n' STEP3.vcf.gz | sort | uniq > STEP4.txt
+## for STEP5.txt 
+## NC_085136.1 1
+## NC_085137.1 2
+## NC_085138.1 3
+## save it as STEP5.txt
+bcftools annotate --rename-chrs STEP5.txt --set-id '%CHROM\_%POS' -Oz -o STEP6.vcf.gz
+vcftools --gzvcf STEP3.recode.vcf --chr XXX -- chr YYY --recode-INFO-all --out STEP6.5
+
+### half-call value is acceptable ###
+plink --vcf STEP6.vcf.gz --const-fid --allow-extra-chr --vcf-half-call m --recode 12 --make-bed --out STEP7
+
+### plink / LD pruning / convert ###
+plink --bfile STEP7 --indep-pairwise 50 5 0.2 --out STEP8
+plink --bfile STEP7 --extract STEP8.prune.in --make-bed --out STEP9
+plink --bfile STEP9 --recode --out STEP9
+
+### Admixture running ###
+for K in 2 3 4 5;do admixture -B --cv STEP9.bed $K | tee long${K}.out; done
